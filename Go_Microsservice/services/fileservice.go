@@ -1,7 +1,9 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"path"
@@ -10,6 +12,12 @@ import (
 )
 
 var tamanhoMaximoDoArquivo = 10 * 1024 * 1024
+var pyServerBaseURL = "http://localhost:8087/upload_image"
+
+type UploadedFile struct {
+	Name     string
+	Contents *bytes.Reader
+}
 
 func verificarTamanhoPermitido(tamanhoArquivo int64) bool {
 	if tamanhoArquivo > int64(tamanhoMaximoDoArquivo) {
@@ -44,10 +52,10 @@ func EnviarImagem(w http.ResponseWriter, r *http.Request) {
 
 		}()
 
-		arquivo, cabecalho, err := r.FormFile("arquivo")
+		arquivo, cabecalho, err := r.FormFile("file")
 
 		if err != nil {
-			fmt.Println(err)
+			fmt.Println("Erro arqv: ", err)
 			return
 		}
 
@@ -79,12 +87,44 @@ func EnviarImagem(w http.ResponseWriter, r *http.Request) {
 
 		nomeDoArquivo := cabecalho.Filename
 
-		fmt.Fprintf(w, "Arquivo %s enviado com sucesso!", nomeDoArquivo)
+		body := new(bytes.Buffer)
+		writer := multipart.NewWriter(body)
+
+		part, err := writer.CreateFormFile("image", nomeDoArquivo)
+
+		if err != nil {
+			fmt.Println("Error")
+			return
+		}
+
+		_, err = io.Copy(part, arquivo)
+
+		req, err := http.NewRequest("POST", "http://localhost:8777/upload_image", body)
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
+
+		if err != nil {
+			return
+		}
+		defer resp.Body.Close()
+
+		// Se tudo ocorrer bem, a resposta deve ser "200 OK"
+		if resp.StatusCode != http.StatusOK {
+			return
+		}
+
+		fmt.Fprintln(w, "Arquivo  enviado com sucesso!", nomeDoArquivo)
 	} else {
 		http.Error(w, "Método não permitiodo", http.StatusMethodNotAllowed)
 	}
 }
 
+/*
 func EnviarImagens(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "POST" {
@@ -99,7 +139,7 @@ func EnviarImagens(w http.ResponseWriter, r *http.Request) {
 
 		formulario := r.MultipartForm
 
-		arquivos, ok := formulario.File["arquivos"]
+		arquivos, ok := formulario.File["file"]
 		if !ok {
 			http.Error(w, "Nenhuma imagem encontrada", http.StatusBadRequest)
 			return
@@ -146,7 +186,15 @@ func EnviarImagens(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Arquivo %s enviado com sucesso!\n", nomeDoArquivo)
 		}
 
+		req, err := http.NewRequest("POST", "http://localhost:8777/upload_image", arquivos)
+
+		if err != nil {
+			return
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+
 	} else {
 		http.Error(w, "Método não permitido", http.StatusMethodNotAllowed)
 	}
 }
+*/
