@@ -12,7 +12,8 @@ import (
 func main() {
 
 	router := mux.NewRouter()
-	router.HandleFunc("/upload/single", services.EnviarImagens).Methods(http.MethodPost)
+	router.HandleFunc("/upload/single", services.EnviarImagem).Methods(http.MethodPost)
+	router.HandleFunc("/upload/multi", services.EnviarImagens).Methods(http.MethodPost)
 	http.Handle("/", router)
 
 	fmt.Println("Escutando na porta 8081")

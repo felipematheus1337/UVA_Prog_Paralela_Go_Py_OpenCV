@@ -3,18 +3,45 @@ package services
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
+	"path"
+	"strings"
+	"sync"
 )
 
 var tamanhoMaximoDoArquivo = 10 * 1024 * 1024
 
-func EnviarImagens(w http.ResponseWriter, r *http.Request) {
+func verificarTamanhoPermitido(tamanhoArquivo int64) bool {
+	if tamanhoArquivo > int64(tamanhoMaximoDoArquivo) {
+		return false
+	} else {
+		return true
+	}
+}
+
+func verificarExtensaoPermitida(filename string) bool {
+	filename = strings.TrimPrefix(filename, ".")
+	if filename != "jpg" && filename != "png" && filename != "jpeg" {
+		return false
+	} else {
+		return true
+	}
+}
+
+func EnviarImagem(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "POST" {
-		if r.ContentLength > int64(tamanhoMaximoDoArquivo) {
-			w.Write([]byte("Não é possível fazer upload de arquivo com tamanho maior de 10mb"))
-			return
-		}
+		var waitGroup sync.WaitGroup
+
+		waitGroup.Add(2)
+
+		tamanho := make(chan bool)
+		extensao := make(chan bool)
+
+		go func() {
+			tamanho <- verificarTamanhoPermitido(r.ContentLength)
+			waitGroup.Done()
+
+		}()
 
 		arquivo, cabecalho, err := r.FormFile("arquivo")
 
@@ -23,18 +50,33 @@ func EnviarImagens(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		extensao := filepath.Ext(cabecalho.Filename)
+		defer arquivo.Close()
 
-		if extensao != ".jpg" && extensao != ".png" && extensao != ".jpeg" {
-			w.Write([]byte("Apenas arquivos .jpg, .png e .jpeg são permitidos"))
+		extensaoArquivo := strings.ToLower(path.Ext(cabecalho.Filename))
+
+		fmt.Println(extensaoArquivo)
+
+		go func() {
+			extensao <- verificarExtensaoPermitida(extensaoArquivo)
+			waitGroup.Done()
+
+		}()
+
+		verifyTamanho := <-tamanho
+		if !verifyTamanho {
+			w.Write([]byte("Tamanho invalido, imagens até 10MB!"))
 			return
 		}
 
-		defer arquivo.Close()
+		verifyExtensao := <-extensao
+		if !verifyExtensao {
+			w.Write([]byte("Extensao invalida! Apenas png, jpg ou jpeg"))
+			return
+		}
+
+		waitGroup.Wait()
 
 		nomeDoArquivo := cabecalho.Filename
-
-		fmt.Println(arquivo)
 
 		fmt.Fprintf(w, "Arquivo %s enviado com sucesso!", nomeDoArquivo)
 	} else {
