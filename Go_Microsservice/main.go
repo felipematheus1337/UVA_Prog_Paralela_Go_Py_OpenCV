@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func main() {
@@ -14,9 +15,10 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/upload/single", services.EnviarImagem).Methods(http.MethodPost)
 	router.HandleFunc("/upload/multi", services.EnviarImagens).Methods(http.MethodPost)
-	http.Handle("/", router)
+
+	c := cors.Default()
+	handler := c.Handler(router)
 
 	fmt.Println("Escutando na porta 8081")
-	log.Fatal(http.ListenAndServe(":8081", router))
-
+	log.Fatal(http.ListenAndServe(":8081", handler))
 }

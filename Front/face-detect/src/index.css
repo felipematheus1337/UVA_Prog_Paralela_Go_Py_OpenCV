@@ -1,0 +1,16 @@
+.body {
+    background-image: url("../../face-detect/src/assets/bg.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
+    height: 100vh;
+    width: 100vw;
+}
+
+
+html {
+    background-image: url("../../face-detect/src/assets/bg.jpg");
+    background-repeat: no-repeat;
+    background-size: cover;
+    height: 100vh;
+    width: 100vw;
+}
